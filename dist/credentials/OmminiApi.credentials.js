@@ -5,31 +5,35 @@ class OmminiApi {
     constructor() {
         this.name = 'omminiApi';
         this.displayName = 'Ommini API';
-        this.documentationUrl = 'https://ommini.com/api-anahtarlari';
+        this.documentationUrl = 'https://ommini.com';
         this.properties = [
             {
-                displayName: 'API Key',
-                name: 'apiKey',
+                displayName: 'Email',
+                name: 'email',
+                type: 'string',
+                default: '',
+                placeholder: 'ornek@email.com',
+                description: 'Ommini hesabınızın email adresi',
+            },
+            {
+                displayName: 'Şifre',
+                name: 'password',
                 type: 'string',
                 typeOptions: { password: true },
                 default: '',
-                placeholder: 'Ommini API anahtarınızı girin',
-                description: 'ommini.com/api-anahtarlari sayfasından alabilirsiniz',
+                description: 'Ommini hesabınızın şifresi',
             },
         ];
-        this.authenticate = {
-            type: 'generic',
-            properties: {
-                headers: {
-                    Authorization: '=Bearer {{$credentials.apiKey}}',
-                },
-            },
-        };
         this.test = {
             request: {
                 baseURL: 'https://ommini.com',
-                url: '/beni-getir',
-                method: 'GET',
+                url: '/giris',
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: {
+                    email: '={{$credentials.email}}',
+                    sifre: '={{$credentials.password}}',
+                },
             },
         };
     }

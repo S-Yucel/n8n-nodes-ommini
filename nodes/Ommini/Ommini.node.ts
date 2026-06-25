@@ -6,6 +6,21 @@ import {
 	NodeOperationError,
 } from 'n8n-workflow';
 
+const BASE_URL = 'https://ommini.com';
+
+// Login yapıp JWT token döner
+async function getToken(email: string, password: string, context: IExecuteFunctions): Promise<string> {
+	const res = await context.helpers.request({
+		method: 'POST',
+		url: `${BASE_URL}/giris`,
+		headers: { 'Content-Type': 'application/json' },
+		body: JSON.stringify({ email, sifre: password }),
+	});
+	const data = JSON.parse(res);
+	if (!data.token) throw new Error('Giriş başarısız: ' + JSON.stringify(data));
+	return data.token;
+}
+
 export class Ommini implements INodeType {
 	description: INodeTypeDescription = {
 		displayName: 'Ommini',
@@ -15,103 +30,27 @@ export class Ommini implements INodeType {
 		version: 1,
 		subtitle: '={{$parameter["operation"] + ": " + $parameter["resource"]}}',
 		description: 'Ommini AI Social Media Platform ile içerik üretin ve paylaşın',
-		defaults: {
-			name: 'Ommini',
-		},
+		defaults: { name: 'Ommini' },
 		inputs: ['main'],
 		outputs: ['main'],
-		credentials: [
-			{
-				name: 'omminiApi',
-				required: true,
-			},
-		],
-		requestDefaults: {
-			baseURL: 'https://ommini.com',
-			headers: {
-				Accept: 'application/json',
-				'Content-Type': 'application/json',
-			},
-		},
+		credentials: [{ name: 'omminiApi', required: true }],
 		properties: [
-			// RESOURCE
+			// ─── RESOURCE ──────────────────────────────────────────────
 			{
 				displayName: 'Kaynak',
 				name: 'resource',
 				type: 'options',
 				noDataExpression: true,
 				options: [
-					{ name: 'İçerik', value: 'icerik' },
 					{ name: 'Gönderi', value: 'gonderi' },
 					{ name: 'Video', value: 'video' },
 					{ name: 'Müzik', value: 'muzik' },
 					{ name: 'Kullanıcı', value: 'kullanici' },
 				],
-				default: 'icerik',
-			},
-
-			// ─── İÇERİK ───────────────────────────────────────────────
-			{
-				displayName: 'İşlem',
-				name: 'operation',
-				type: 'options',
-				noDataExpression: true,
-				displayOptions: { show: { resource: ['icerik'] } },
-				options: [
-					{ name: 'Oluştur', value: 'olustur', description: 'AI ile içerik üret', action: 'İçerik oluştur' },
-				],
-				default: 'olustur',
-			},
-			{
-				displayName: 'Konu',
-				name: 'konu',
-				type: 'string',
-				default: '',
-				placeholder: 'İçerik konusunu yazın...',
-				displayOptions: { show: { resource: ['icerik'], operation: ['olustur'] } },
-				required: true,
-			},
-			{
-				displayName: 'Platform',
-				name: 'platform',
-				type: 'options',
-				displayOptions: { show: { resource: ['icerik'], operation: ['olustur'] } },
-				options: [
-					{ name: 'Instagram', value: 'instagram' },
-					{ name: 'Twitter / X', value: 'twitter' },
-					{ name: 'LinkedIn', value: 'linkedin' },
-					{ name: 'Facebook', value: 'facebook' },
-					{ name: 'TikTok', value: 'tiktok' },
-					{ name: 'YouTube', value: 'youtube' },
-				],
-				default: 'instagram',
-			},
-			{
-				displayName: 'İçerik Türü',
-				name: 'icerik_turu',
-				type: 'options',
-				displayOptions: { show: { resource: ['icerik'], operation: ['olustur'] } },
-				options: [
-					{ name: 'Gönderi', value: 'gonderi' },
-					{ name: 'Hikaye', value: 'hikaye' },
-					{ name: 'Video Scripti', value: 'video_script' },
-					{ name: 'Thread', value: 'thread' },
-				],
 				default: 'gonderi',
 			},
-			{
-				displayName: 'Dil',
-				name: 'dil',
-				type: 'options',
-				displayOptions: { show: { resource: ['icerik'], operation: ['olustur'] } },
-				options: [
-					{ name: 'Türkçe', value: 'tr' },
-					{ name: 'İngilizce', value: 'en' },
-				],
-				default: 'tr',
-			},
 
-			// ─── GÖNDERİ ──────────────────────────────────────────────
+			// ─── GÖNDERİ ───────────────────────────────────────────────
 			{
 				displayName: 'İşlem',
 				name: 'operation',
@@ -119,10 +58,19 @@ export class Ommini implements INodeType {
 				noDataExpression: true,
 				displayOptions: { show: { resource: ['gonderi'] } },
 				options: [
-					{ name: 'Paylaş', value: 'paylas', description: 'Sosyal medyada paylaş', action: 'Gönderi paylaş' },
-					{ name: 'Takvime Ekle', value: 'takvim', description: 'Zamanlanmış paylaşım oluştur', action: 'Takvime ekle' },
+					{ name: 'Oluştur', value: 'olustur', action: 'Gönderi oluştur' },
+					{ name: 'Takvime Ekle', value: 'takvim', action: 'Takvime ekle' },
+					{ name: 'Listele', value: 'listele', action: 'Gönderileri listele' },
 				],
-				default: 'paylas',
+				default: 'olustur',
+			},
+			{
+				displayName: 'Başlık',
+				name: 'baslik',
+				type: 'string',
+				default: '',
+				displayOptions: { show: { resource: ['gonderi'], operation: ['olustur', 'takvim'] } },
+				required: true,
 			},
 			{
 				displayName: 'İçerik',
@@ -130,30 +78,23 @@ export class Ommini implements INodeType {
 				type: 'string',
 				typeOptions: { rows: 4 },
 				default: '',
-				displayOptions: { show: { resource: ['gonderi'] } },
+				displayOptions: { show: { resource: ['gonderi'], operation: ['olustur', 'takvim'] } },
 				required: true,
 			},
 			{
 				displayName: 'Platform',
-				name: 'gonderi_platform',
-				type: 'multiOptions',
-				displayOptions: { show: { resource: ['gonderi'], operation: ['paylas'] } },
+				name: 'platform',
+				type: 'options',
+				displayOptions: { show: { resource: ['gonderi'], operation: ['olustur'] } },
 				options: [
+					{ name: 'Genel', value: 'genel' },
 					{ name: 'Instagram', value: 'instagram' },
 					{ name: 'Twitter / X', value: 'twitter' },
 					{ name: 'LinkedIn', value: 'linkedin' },
 					{ name: 'Facebook', value: 'facebook' },
 					{ name: 'TikTok', value: 'tiktok' },
 				],
-				default: ['instagram'],
-				required: true,
-			},
-			{
-				displayName: 'Görsel URL (opsiyonel)',
-				name: 'gorsel_url',
-				type: 'string',
-				default: '',
-				displayOptions: { show: { resource: ['gonderi'] } },
+				default: 'genel',
 			},
 			{
 				displayName: 'Yayın Zamanı',
@@ -162,9 +103,24 @@ export class Ommini implements INodeType {
 				default: '',
 				displayOptions: { show: { resource: ['gonderi'], operation: ['takvim'] } },
 				required: true,
+				description: 'ISO 8601 format: 2024-05-15T14:30:00',
+			},
+			{
+				displayName: 'Platform (Takvim)',
+				name: 'takvim_platform',
+				type: 'options',
+				displayOptions: { show: { resource: ['gonderi'], operation: ['takvim'] } },
+				options: [
+					{ name: 'Instagram', value: 'instagram' },
+					{ name: 'Twitter / X', value: 'twitter' },
+					{ name: 'LinkedIn', value: 'linkedin' },
+					{ name: 'Facebook', value: 'facebook' },
+					{ name: 'TikTok', value: 'tiktok' },
+				],
+				default: 'instagram',
 			},
 
-			// ─── VİDEO ────────────────────────────────────────────────
+			// ─── VİDEO ─────────────────────────────────────────────────
 			{
 				displayName: 'İşlem',
 				name: 'operation',
@@ -172,51 +128,67 @@ export class Ommini implements INodeType {
 				noDataExpression: true,
 				displayOptions: { show: { resource: ['video'] } },
 				options: [
-					{ name: 'Pipeline Önizle', value: 'pipeline_onizle', description: 'Senaryo ve narrasyon üret', action: 'Pipeline önizle' },
-					{ name: 'Pipeline Üret', value: 'pipeline_uret', description: 'Video üretimini başlat', action: 'Pipeline üret' },
-					{ name: 'Durum Sorgula', value: 'durum', description: 'Video üretim durumunu öğren', action: 'Durum sorgula' },
+					{ name: 'Oluştur', value: 'olustur', action: 'Video oluştur' },
+					{ name: 'Durum Sorgula', value: 'durum', action: 'Video durumunu sorgula' },
+					{ name: 'Listele', value: 'listele', action: 'Videoları listele' },
 				],
-				default: 'pipeline_onizle',
+				default: 'olustur',
 			},
 			{
-				displayName: 'Konu',
-				name: 'video_konu',
+				displayName: 'Prompt',
+				name: 'prompt',
 				type: 'string',
+				typeOptions: { rows: 3 },
 				default: '',
-				displayOptions: { show: { resource: ['video'], operation: ['pipeline_onizle', 'pipeline_uret'] } },
+				displayOptions: { show: { resource: ['video'], operation: ['olustur'] } },
 				required: true,
 			},
 			{
-				displayName: 'Şablon',
-				name: 'sablon',
+				displayName: 'Stil',
+				name: 'stil',
 				type: 'options',
-				displayOptions: { show: { resource: ['video'], operation: ['pipeline_onizle', 'pipeline_uret'] } },
+				displayOptions: { show: { resource: ['video'], operation: ['olustur'] } },
 				options: [
-					{ name: 'Eğitici', value: 'egitici' },
-					{ name: 'Tanıtım', value: 'tanitim' },
-					{ name: 'Hikaye', value: 'hikaye' },
-					{ name: 'Ürün', value: 'urun' },
+					{ name: 'Sinematik', value: 'cinematic' },
+					{ name: 'Anime', value: 'anime' },
+					{ name: 'Gerçekçi', value: 'realistic' },
+					{ name: 'Animasyon', value: 'animation' },
 				],
-				default: 'egitici',
+				default: 'cinematic',
 			},
 			{
-				displayName: 'Sahne Sayısı',
-				name: 'sahne_sayisi',
+				displayName: 'Süre',
+				name: 'sure',
+				type: 'options',
+				displayOptions: { show: { resource: ['video'], operation: ['olustur'] } },
+				options: [
+					{ name: '5 Saniye', value: '5' },
+					{ name: '10 Saniye', value: '10' },
+				],
+				default: '5',
+			},
+			{
+				displayName: 'Oran',
+				name: 'oran',
+				type: 'options',
+				displayOptions: { show: { resource: ['video'], operation: ['olustur'] } },
+				options: [
+					{ name: '9:16 (Dikey)', value: '9:16' },
+					{ name: '16:9 (Yatay)', value: '16:9' },
+					{ name: '1:1 (Kare)', value: '1:1' },
+				],
+				default: '9:16',
+			},
+			{
+				displayName: 'Video ID',
+				name: 'video_id',
 				type: 'number',
-				typeOptions: { minValue: 2, maxValue: 5 },
-				default: 3,
-				displayOptions: { show: { resource: ['video'], operation: ['pipeline_onizle', 'pipeline_uret'] } },
-			},
-			{
-				displayName: 'Görev ID',
-				name: 'gorev_id',
-				type: 'string',
-				default: '',
+				default: 0,
 				displayOptions: { show: { resource: ['video'], operation: ['durum'] } },
 				required: true,
 			},
 
-			// ─── MÜZİK ────────────────────────────────────────────────
+			// ─── MÜZİK ─────────────────────────────────────────────────
 			{
 				displayName: 'İşlem',
 				name: 'operation',
@@ -224,13 +196,15 @@ export class Ommini implements INodeType {
 				noDataExpression: true,
 				displayOptions: { show: { resource: ['muzik'] } },
 				options: [
-					{ name: 'Üret', value: 'uret', description: 'AI ile müzik üret', action: 'Müzik üret' },
+					{ name: 'Üret', value: 'uret', action: 'Müzik üret' },
+					{ name: 'Listele', value: 'listele', action: 'Müzikleri listele' },
+					{ name: 'Detay', value: 'detay', action: 'Müzik detayı' },
 				],
 				default: 'uret',
 			},
 			{
-				displayName: 'Konu',
-				name: 'muzik_konu',
+				displayName: 'Başlık',
+				name: 'muzik_baslik',
 				type: 'string',
 				default: '',
 				displayOptions: { show: { resource: ['muzik'], operation: ['uret'] } },
@@ -242,18 +216,55 @@ export class Ommini implements INodeType {
 				type: 'options',
 				displayOptions: { show: { resource: ['muzik'], operation: ['uret'] } },
 				options: [
-					{ name: 'Pop', value: 'pop' },
-					{ name: 'Rock', value: 'rock' },
-					{ name: 'Arabesk', value: 'arabesk' },
-					{ name: 'Türk Halk Müziği', value: 'halk' },
-					{ name: 'Electronic', value: 'electronic' },
-					{ name: 'Jazz', value: 'jazz' },
+					{ name: 'Pop', value: 'Pop' },
+					{ name: 'Rock', value: 'Rock' },
+					{ name: 'Arabesk', value: 'Arabesk' },
+					{ name: 'Türk Halk Müziği', value: 'Türk Halk Müziği' },
+					{ name: 'Electronic', value: 'Electronic' },
+					{ name: 'Jazz', value: 'Jazz' },
+					{ name: 'Hip-Hop', value: 'Hip-Hop' },
+					{ name: 'R&B', value: 'R&B' },
+					{ name: 'Classical', value: 'Classical' },
+					{ name: 'Anadolu Rock', value: 'Anadolu Rock' },
+				],
+				default: 'Pop',
+			},
+			{
+				displayName: 'Tip',
+				name: 'tip',
+				type: 'options',
+				displayOptions: { show: { resource: ['muzik'], operation: ['uret'] } },
+				options: [
+					{ name: 'Vokal', value: 'vokal' },
 					{ name: 'Enstrümantal', value: 'enstrumantal' },
 				],
-				default: 'pop',
+				default: 'vokal',
+			},
+			{
+				displayName: 'Duygu',
+				name: 'mood',
+				type: 'options',
+				displayOptions: { show: { resource: ['muzik'], operation: ['uret'] } },
+				options: [
+					{ name: 'Mutlu', value: 'mutlu' },
+					{ name: 'Hüzünlü', value: 'hüzünlü' },
+					{ name: 'Enerjik', value: 'enerjik' },
+					{ name: 'Sakin', value: 'sakin' },
+					{ name: 'Romantik', value: 'romantik' },
+					{ name: 'Nostaljik', value: 'nostaljik' },
+				],
+				default: 'mutlu',
+			},
+			{
+				displayName: 'Müzik ID',
+				name: 'muzik_id',
+				type: 'number',
+				default: 0,
+				displayOptions: { show: { resource: ['muzik'], operation: ['detay'] } },
+				required: true,
 			},
 
-			// ─── KULLANICI ─────────────────────────────────────────────
+			// ─── KULLANICI ──────────────────────────────────────────────
 			{
 				displayName: 'İşlem',
 				name: 'operation',
@@ -261,7 +272,7 @@ export class Ommini implements INodeType {
 				noDataExpression: true,
 				displayOptions: { show: { resource: ['kullanici'] } },
 				options: [
-					{ name: 'Bilgileri Getir', value: 'getir', description: 'Kullanıcı bilgilerini ve kredi bakiyesini al', action: 'Kullanıcı bilgilerini getir' },
+					{ name: 'Bilgileri Getir', value: 'getir', action: 'Kullanıcı bilgilerini getir' },
 				],
 				default: 'getir',
 			},
@@ -272,11 +283,8 @@ export class Ommini implements INodeType {
 		const items = this.getInputData();
 		const returnData: INodeExecutionData[] = [];
 		const credentials = await this.getCredentials('omminiApi');
-		const baseURL = 'https://ommini.com';
-		const headers = {
-			Authorization: `Bearer ${credentials.apiKey}`,
-			'Content-Type': 'application/json',
-		};
+		const email = credentials.email as string;
+		const password = credentials.password as string;
 
 		for (let i = 0; i < items.length; i++) {
 			const resource = this.getNodeParameter('resource', i) as string;
@@ -285,125 +293,155 @@ export class Ommini implements INodeType {
 			try {
 				let responseData: any;
 
-				// ─── İÇERİK ───────────────────────────────────────────
-				if (resource === 'icerik' && operation === 'olustur') {
-					const body = {
-						konu: this.getNodeParameter('konu', i),
-						platform: this.getNodeParameter('platform', i),
-						icerik_turu: this.getNodeParameter('icerik_turu', i),
-						dil: this.getNodeParameter('dil', i),
-					};
-					const res = await this.helpers.request({
-						method: 'POST',
-						url: `${baseURL}/icerik-olustur`,
-						headers,
-						body: JSON.stringify(body),
-					});
-					responseData = JSON.parse(res);
-				}
-
 				// ─── GÖNDERİ ──────────────────────────────────────────
-				else if (resource === 'gonderi' && operation === 'paylas') {
-					const platformlar = this.getNodeParameter('gonderi_platform', i) as string[];
-					const sonuclar: any[] = [];
-					for (const platform of platformlar) {
-						const body: any = {
-							icerik: this.getNodeParameter('icerik', i),
-							platform,
-						};
-						const gorsel = this.getNodeParameter('gorsel_url', i) as string;
-						if (gorsel) body.gorsel_url = gorsel;
+				if (resource === 'gonderi') {
+					const token = await getToken(email, password, this);
+					const headers = {
+						'Authorization': `Bearer ${token}`,
+						'Content-Type': 'application/json',
+					};
 
+					if (operation === 'olustur') {
+						// /api/v1/post/create — X-API-Key ile de çalışır ama JWT kullanıyoruz
+						// Alternatif: /gonderi-kaydet JWT ile
+						const body = {
+							baslik: this.getNodeParameter('baslik', i),
+							icerik: this.getNodeParameter('icerik', i),
+							platform: this.getNodeParameter('platform', i),
+							durum: 'taslak',
+						};
 						const res = await this.helpers.request({
 							method: 'POST',
-							url: `${baseURL}/gonderi-olustur`,
+							url: `${BASE_URL}/gonderi-kaydet`,
 							headers,
 							body: JSON.stringify(body),
 						});
-						sonuclar.push({ platform, ...JSON.parse(res) });
+						responseData = JSON.parse(res);
 					}
-					responseData = { sonuclar };
-				}
 
-				else if (resource === 'gonderi' && operation === 'takvim') {
-					const body: any = {
-						icerik: this.getNodeParameter('icerik', i),
-						yayin_zamani: this.getNodeParameter('yayin_zamani', i),
-					};
-					const gorsel = this.getNodeParameter('gorsel_url', i) as string;
-					if (gorsel) body.gorsel_url = gorsel;
+					else if (operation === 'takvim') {
+						const body = {
+							baslik: this.getNodeParameter('baslik', i),
+							icerik: this.getNodeParameter('icerik', i),
+							platform: this.getNodeParameter('takvim_platform', i),
+							planlanan_tarih: this.getNodeParameter('yayin_zamani', i),
+						};
+						const res = await this.helpers.request({
+							method: 'POST',
+							url: `${BASE_URL}/takvim-ekle`,
+							headers,
+							body: JSON.stringify(body),
+						});
+						responseData = JSON.parse(res);
+					}
 
-					const res = await this.helpers.request({
-						method: 'POST',
-						url: `${baseURL}/takvim-ekle`,
-						headers,
-						body: JSON.stringify(body),
-					});
-					responseData = JSON.parse(res);
+					else if (operation === 'listele') {
+						const res = await this.helpers.request({
+							method: 'GET',
+							url: `${BASE_URL}/gonderiler-getir`,
+							headers,
+						});
+						responseData = JSON.parse(res);
+					}
 				}
 
 				// ─── VİDEO ────────────────────────────────────────────
-				else if (resource === 'video' && operation === 'pipeline_onizle') {
-					const body = {
-						konu: this.getNodeParameter('video_konu', i),
-						sablon: this.getNodeParameter('sablon', i),
-						sahne_sayisi: this.getNodeParameter('sahne_sayisi', i),
+				else if (resource === 'video') {
+					const token = await getToken(email, password, this);
+					const headers = {
+						'Authorization': `Bearer ${token}`,
+						'Content-Type': 'application/json',
 					};
-					const res = await this.helpers.request({
-						method: 'POST',
-						url: `${baseURL}/video-pipeline-onizle`,
-						headers,
-						body: JSON.stringify(body),
-					});
-					responseData = JSON.parse(res);
-				}
 
-				else if (resource === 'video' && operation === 'pipeline_uret') {
-					const body = {
-						konu: this.getNodeParameter('video_konu', i),
-						sablon: this.getNodeParameter('sablon', i),
-						sahne_sayisi: this.getNodeParameter('sahne_sayisi', i),
-					};
-					const res = await this.helpers.request({
-						method: 'POST',
-						url: `${baseURL}/video-pipeline-baslat`,
-						headers,
-						body: JSON.stringify(body),
-					});
-					responseData = JSON.parse(res);
-				}
+					if (operation === 'olustur') {
+						const body = {
+							prompt: this.getNodeParameter('prompt', i),
+							stil: this.getNodeParameter('stil', i),
+							sure: this.getNodeParameter('sure', i),
+							oran: this.getNodeParameter('oran', i),
+						};
+						const res = await this.helpers.request({
+							method: 'POST',
+							url: `${BASE_URL}/video-uret`,
+							headers,
+							body: JSON.stringify(body),
+						});
+						responseData = JSON.parse(res);
+					}
 
-				else if (resource === 'video' && operation === 'durum') {
-					const gorevId = this.getNodeParameter('gorev_id', i) as string;
-					const res = await this.helpers.request({
-						method: 'GET',
-						url: `${baseURL}/video-durum/${gorevId}`,
-						headers,
-					});
-					responseData = JSON.parse(res);
+					else if (operation === 'durum') {
+						const videoId = this.getNodeParameter('video_id', i);
+						const res = await this.helpers.request({
+							method: 'GET',
+							url: `${BASE_URL}/video-durum/${videoId}`,
+							headers,
+						});
+						responseData = JSON.parse(res);
+					}
+
+					else if (operation === 'listele') {
+						const res = await this.helpers.request({
+							method: 'GET',
+							url: `${BASE_URL}/videolari-getir`,
+							headers,
+						});
+						responseData = JSON.parse(res);
+					}
 				}
 
 				// ─── MÜZİK ────────────────────────────────────────────
-				else if (resource === 'muzik' && operation === 'uret') {
-					const body = {
-						konu: this.getNodeParameter('muzik_konu', i),
-						tarz: this.getNodeParameter('tarz', i),
+				else if (resource === 'muzik') {
+					const token = await getToken(email, password, this);
+					const headers = {
+						'Authorization': `Bearer ${token}`,
+						'Content-Type': 'application/json',
 					};
-					const res = await this.helpers.request({
-						method: 'POST',
-						url: `${baseURL}/muzik/uret`,
-						headers,
-						body: JSON.stringify(body),
-					});
-					responseData = JSON.parse(res);
+
+					if (operation === 'uret') {
+						const body = {
+							baslik: this.getNodeParameter('muzik_baslik', i),
+							tarz: this.getNodeParameter('tarz', i),
+							tip: this.getNodeParameter('tip', i),
+							mood: this.getNodeParameter('mood', i),
+							tempo: 'orta',
+							ai_sozler: 0,
+						};
+						const res = await this.helpers.request({
+							method: 'POST',
+							url: `${BASE_URL}/muzik/uret`,
+							headers,
+							body: JSON.stringify(body),
+						});
+						responseData = JSON.parse(res);
+					}
+
+					else if (operation === 'listele') {
+						const res = await this.helpers.request({
+							method: 'GET',
+							url: `${BASE_URL}/muzik/liste`,
+							headers,
+						});
+						responseData = JSON.parse(res);
+					}
+
+					else if (operation === 'detay') {
+						const muzikId = this.getNodeParameter('muzik_id', i);
+						const res = await this.helpers.request({
+							method: 'GET',
+							url: `${BASE_URL}/muzik/detay/${muzikId}`,
+							headers,
+						});
+						responseData = JSON.parse(res);
+					}
 				}
 
 				// ─── KULLANICI ─────────────────────────────────────────
 				else if (resource === 'kullanici' && operation === 'getir') {
+					const token = await getToken(email, password, this);
 					const res = await this.helpers.request({
 						method: 'GET',
-						url: `${baseURL}/beni-getir`,
-						headers,
+						url: `${BASE_URL}/beni-getir`,
+						headers: { 'Authorization': `Bearer ${token}` },
 					});
 					responseData = JSON.parse(res);
 				}

@@ -1,5 +1,4 @@
 import {
-	IAuthenticateGeneric,
 	ICredentialTestRequest,
 	ICredentialType,
 	INodeProperties,
@@ -8,33 +7,36 @@ import {
 export class OmminiApi implements ICredentialType {
 	name = 'omminiApi';
 	displayName = 'Ommini API';
-	documentationUrl = 'https://ommini.com/api-anahtarlari';
+	documentationUrl = 'https://ommini.com';
 	properties: INodeProperties[] = [
 		{
-			displayName: 'API Key',
-			name: 'apiKey',
+			displayName: 'Email',
+			name: 'email',
+			type: 'string',
+			default: '',
+			placeholder: 'ornek@email.com',
+			description: 'Ommini hesabınızın email adresi',
+		},
+		{
+			displayName: 'Şifre',
+			name: 'password',
 			type: 'string',
 			typeOptions: { password: true },
 			default: '',
-			placeholder: 'Ommini API anahtarınızı girin',
-			description: 'ommini.com/api-anahtarlari sayfasından alabilirsiniz',
+			description: 'Ommini hesabınızın şifresi',
 		},
 	];
-
-	authenticate: IAuthenticateGeneric = {
-		type: 'generic',
-		properties: {
-			headers: {
-				Authorization: '=Bearer {{$credentials.apiKey}}',
-			},
-		},
-	};
 
 	test: ICredentialTestRequest = {
 		request: {
 			baseURL: 'https://ommini.com',
-			url: '/beni-getir',
-			method: 'GET',
+			url: '/giris',
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: {
+				email: '={{$credentials.email}}',
+				sifre: '={{$credentials.password}}',
+			},
 		},
 	};
 }

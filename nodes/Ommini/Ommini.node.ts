@@ -25,7 +25,7 @@ export class Ommini implements INodeType {
 	description: INodeTypeDescription = {
 		displayName: 'Ommini',
 		name: 'ommini',
-		icon: 'file:ommini.svg',
+		icon: 'file:ommini.png',
 		group: ['transform'],
 		version: 1,
 		subtitle: '={{$parameter["operation"] + ": " + $parameter["resource"]}}',

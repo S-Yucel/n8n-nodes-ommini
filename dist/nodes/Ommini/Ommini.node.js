@@ -21,7 +21,7 @@ class Ommini {
         this.description = {
             displayName: 'Ommini',
             name: 'ommini',
-            icon: 'file:ommini.svg',
+            icon: 'file:ommini.png',
             group: ['transform'],
             version: 1,
             subtitle: '={{$parameter["operation"] + ": " + $parameter["resource"]}}',

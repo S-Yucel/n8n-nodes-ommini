@@ -21,7 +21,7 @@ class Ommini {
         this.description = {
             displayName: 'Ommini',
             name: 'ommini',
-            icon: 'file:ommini.png',
+            icon: 'file:ommini.svg',
             group: ['transform'],
             version: 1,
             subtitle: '={{$parameter["operation"] + ": " + $parameter["resource"]}}',
@@ -39,6 +39,7 @@ class Ommini {
                     noDataExpression: true,
                     options: [
                         { name: 'Gönderi', value: 'gonderi' },
+                        { name: 'Görsel', value: 'gorsel' },
                         { name: 'Video', value: 'video' },
                         { name: 'Müzik', value: 'muzik' },
                         { name: 'Kullanıcı', value: 'kullanici' },
@@ -113,6 +114,42 @@ class Ommini {
                         { name: 'TikTok', value: 'tiktok' },
                     ],
                     default: 'instagram',
+                },
+                // ─── GÖRSEL ────────────────────────────────────────────────
+                {
+                    displayName: 'İşlem',
+                    name: 'operation',
+                    type: 'options',
+                    noDataExpression: true,
+                    displayOptions: { show: { resource: ['gorsel'] } },
+                    options: [
+                        { name: 'Üret', value: 'uret', action: 'Görsel üret' },
+                    ],
+                    default: 'uret',
+                },
+                {
+                    displayName: 'Prompt',
+                    name: 'gorsel_prompt',
+                    type: 'string',
+                    typeOptions: { rows: 3 },
+                    default: '',
+                    placeholder: 'Üretmek istediğiniz görseli tanımlayın...',
+                    displayOptions: { show: { resource: ['gorsel'], operation: ['uret'] } },
+                    required: true,
+                    description: 'Türkçe yazabilirsiniz, otomatik çeviri yapılır',
+                },
+                {
+                    displayName: 'Oran',
+                    name: 'gorsel_oran',
+                    type: 'options',
+                    displayOptions: { show: { resource: ['gorsel'], operation: ['uret'] } },
+                    options: [
+                        { name: 'Kare (1:1)', value: '1:1' },
+                        { name: 'Yatay (16:9)', value: '16:9' },
+                        { name: 'Dikey (9:16)', value: '9:16' },
+                        { name: 'Geniş (4:3)', value: '4:3' },
+                    ],
+                    default: '1:1',
                 },
                 // ─── VİDEO ─────────────────────────────────────────────────
                 {
@@ -326,6 +363,27 @@ class Ommini {
                             method: 'GET',
                             url: `${BASE_URL}/gonderiler-getir`,
                             headers,
+                        });
+                        responseData = JSON.parse(res);
+                    }
+                }
+                // ─── GÖRSEL ───────────────────────────────────────────
+                else if (resource === 'gorsel') {
+                    const token = await getToken(email, password, this);
+                    const headers = {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json',
+                    };
+                    if (operation === 'uret') {
+                        const body = {
+                            prompt: this.getNodeParameter('gorsel_prompt', i),
+                            oran: this.getNodeParameter('gorsel_oran', i),
+                        };
+                        const res = await this.helpers.request({
+                            method: 'POST',
+                            url: `${BASE_URL}/gorsel-uret`,
+                            headers,
+                            body: JSON.stringify(body),
                         });
                         responseData = JSON.parse(res);
                     }

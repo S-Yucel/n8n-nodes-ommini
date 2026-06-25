@@ -21,7 +21,7 @@ class Ommini {
         this.description = {
             displayName: 'Ommini',
             name: 'ommini',
-            icon: 'file:ommini.svg',
+            icon: 'file:ommini.png',
             group: ['transform'],
             version: 1,
             subtitle: '={{$parameter["operation"] + ": " + $parameter["resource"]}}',
@@ -38,6 +38,7 @@ class Ommini {
                     type: 'options',
                     noDataExpression: true,
                     options: [
+                        { name: 'AI İçerik', value: 'ai' },
                         { name: 'Gönderi', value: 'gonderi' },
                         { name: 'Görsel', value: 'gorsel' },
                         { name: 'Video', value: 'video' },
@@ -45,6 +46,29 @@ class Ommini {
                         { name: 'Kullanıcı', value: 'kullanici' },
                     ],
                     default: 'gonderi',
+                },
+                // ─── AI İÇERİK ─────────────────────────────────────────────
+                {
+                    displayName: 'İşlem',
+                    name: 'operation',
+                    type: 'options',
+                    noDataExpression: true,
+                    displayOptions: { show: { resource: ['ai'] } },
+                    options: [
+                        { name: 'İçerik Üret', value: 'icerik_uret', action: 'AI ile içerik üret' },
+                    ],
+                    default: 'icerik_uret',
+                },
+                {
+                    displayName: 'Prompt / Konu',
+                    name: 'ai_mesaj',
+                    type: 'string',
+                    typeOptions: { rows: 4 },
+                    default: '',
+                    placeholder: 'LinkedIn için Ommini hakkında bir yazı üret...',
+                    displayOptions: { show: { resource: ['ai'], operation: ['icerik_uret'] } },
+                    required: true,
+                    description: 'AI\'ya göndermek istediğiniz mesaj veya konu',
                 },
                 // ─── GÖNDERİ ───────────────────────────────────────────────
                 {
@@ -319,6 +343,23 @@ class Ommini {
             const operation = this.getNodeParameter('operation', i);
             try {
                 let responseData;
+                // ─── AI İÇERİK ────────────────────────────────────────
+                if (resource === 'ai' && operation === 'icerik_uret') {
+                    const token = await getToken(email, password, this);
+                    const body = {
+                        mesaj: this.getNodeParameter('ai_mesaj', i),
+                    };
+                    const res = await this.helpers.request({
+                        method: 'POST',
+                        url: `${BASE_URL}/yapay-zeka-test`,
+                        headers: {
+                            'Authorization': `Bearer ${token}`,
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify(body),
+                    });
+                    responseData = JSON.parse(res);
+                }
                 // ─── GÖNDERİ ──────────────────────────────────────────
                 if (resource === 'gonderi') {
                     const token = await getToken(email, password, this);

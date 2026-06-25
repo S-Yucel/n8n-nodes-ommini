@@ -1,6 +1,6 @@
 {
   "name": "n8n-nodes-ommini",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "description": "n8n community node for Ommini - AI Social Media Platform",
   "keywords": ["n8n-community-node-package", "ommini", "social media", "ai", "content"],
   "license": "MIT",

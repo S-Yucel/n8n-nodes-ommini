@@ -1,6 +1,6 @@
 {
   "name": "n8n-nodes-ommini",
-  "version": "0.2.3",
+  "version": "0.2.0",
   "description": "n8n community node for Ommini - AI Social Media Platform",
   "keywords": ["n8n-community-node-package", "ommini", "social media", "ai", "content"],
   "license": "MIT",
@@ -10,7 +10,7 @@
   "main": "index.js",
   "scripts": {
     "build": "tsc && npm run copy-icons",
-    "copy-icons": "copyfiles -u 1 \"nodes/**/*.svg\" dist/",
+   "copy-icons": "copyfiles -u 1 \"nodes/**/*.png\" dist/nodes/",
     "dev": "tsc --watch",
     "prepublishOnly": "npm run build"
   },

@@ -1,0 +1,50 @@
+{
+  "name": "n8n-nodes-ommini",
+  "version": "0.1.0",
+  "description": "n8n community node for Ommini - AI Social Media Platform",
+  "keywords": [
+    "n8n-community-node-package",
+    "ommini",
+    "social media",
+    "ai",
+    "content"
+  ],
+  "license": "MIT",
+  "homepage": "https://ommini.com",
+  "author": {
+    "name": "Ommini",
+    "email": "destek@ommini.com"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/S-Yucel/n8n-nodes-ommini"
+  },
+  "main": "index.js",
+  "scripts": {
+    "build": "tsc && npm run copy-icons",
+    "copy-icons": "copyfiles -u 1 \"nodes/**/*.svg\" dist/",
+    "dev": "tsc --watch",
+    "lint": "eslint nodes credentials --ext .ts",
+    "prepublishOnly": "npm run build"
+  },
+  "files": [
+    "dist"
+  ],
+  "n8n": {
+    "n8nNodesApiVersion": 1,
+    "credentials": [
+      "dist/credentials/OmminiApi.credentials.js"
+    ],
+    "nodes": [
+      "dist/nodes/Ommini/Ommini.node.js"
+    ]
+  },
+  "devDependencies": {
+    "@types/node": "^18.0.0",
+    "copyfiles": "^2.4.1",
+    "typescript": "^5.0.0"
+  },
+  "peerDependencies": {
+    "n8n-workflow": "*"
+  }
+}
